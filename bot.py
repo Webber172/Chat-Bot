@@ -1,69 +1,63 @@
 import os
 import asyncio
-from aiogram import Bot, Dispatcher, types
+from aiogram import Bot, Dispatcher, F
+from aiogram.types import Message
 from aiogram.filters import Command
-from aiogram.types import FSInputFile
 from yt_dlp import YoutubeDL
-from dotenv import load_dotenv
+from aiogram.client.session.aiohttp import AiohttpSession
 
-load_dotenv()
+# Получаем токен из переменной окружения
 TOKEN = os.getenv("BOT_TOKEN")
 
+if TOKEN is None:
+    raise ValueError("Не найден токен! Задайте переменную окружения BOT_TOKEN.")
+
+# Создаём объекты бота и диспетчера
 bot = Bot(token=TOKEN)
-dp = Dispatcher(bot)
+dp = Dispatcher()
 
-DOWNLOAD_DIR = "downloads"
-os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+# Обработчик команды /start
+@dp.message(Command("start"))
+async def start(message: Message):
+    await message.answer("Привет! Отправь ссылку на YouTube, и я пришлю аудио в MP3.")
 
-def download_mp3(url: str) -> str:
+# Обработчик текстовых сообщений (ссылки)
+@dp.message(F.text)
+async def download_audio(message: Message):
+    url = message.text.strip()
+    await message.answer("Скачиваю аудио... ⏳")
+
+    # Настройки yt-dlp для MP3
     ydl_opts = {
-        "format": "bestaudio/best",
-        "outtmpl": f"{DOWNLOAD_DIR}/%(title)s.%(ext)s",
-        "quiet": True,
-        "noplaylist": True,
-        "postprocessors": [{
-            "key": "FFmpegExtractAudio",
-            "preferredcodec": "mp3",
-            "preferredquality": "192",
+        'format': 'bestaudio/best',
+        'outtmpl': 'audio.%(ext)s',
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
         }],
+        'quiet': True,
+        'noplaylist': True
     }
 
-    with YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=True)
-        return ydl.prepare_filename(info).rsplit(".", 1)[0] + ".mp3"
-
-@dp.message(Command("start"))
-async def start(message: types.Message):
-    await message.answer("Отправь ссылку на YouTube-видео.")
-
-@dp.message()
-async def handle_link(message: types.Message):
-    url = message.text.strip()
-
-    if "youtube.com" not in url and "youtu.be" not in url:
-        await message.answer("Отправь ссылку на YouTube.")
-        return
-
-    await message.answer("🎵 Скачиваю аудио, подожди...")
-
     try:
-        loop = asyncio.get_running_loop()
-        file_path = await loop.run_in_executor(
-            None, download_mp3, url
-        )
+        with YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            filename = ydl.prepare_filename(info).replace('.webm', '.mp3').replace('.m4a', '.mp3')
 
-        await message.answer_audio(
-            audio=FSInputFile(file_path),
-            title=os.path.basename(file_path)
-        )
+        # Отправляем MP3 пользователю
+        with open(filename, 'rb') as f:
+            await message.answer_document(f)
 
-        os.remove(file_path)
+        # Удаляем файл после отправки
+        os.remove(filename)
 
     except Exception as e:
-        await message.answer("❌ Ошибка при загрузке аудио.")
-        print(e)
+        await message.answer(f"Ошибка при скачивании: {e}")
 
+# Запуск бота
 async def main():
+    bot.session = AiohttpSession()
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
