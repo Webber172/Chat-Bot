@@ -7,11 +7,10 @@ from yt_dlp import YoutubeDL
 from dotenv import load_dotenv
 
 load_dotenv()
-BOT_TOKEN = os.getenv("8287498125:AAFVZvSTbBagW5NgQWVkrmb5u965skBTgQk")
-
+TOKEN = os.getenv("8287498125:AAFVZvSTbBagW5NgQWVkrmb5u965skBTgQk")
 
 bot = Bot(token=TOKEN)
-dp = Dispatcher()
+dp = Dispatcher(bot)
 
 DOWNLOAD_DIR = "downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
