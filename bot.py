@@ -7,7 +7,7 @@ from yt_dlp import YoutubeDL
 from dotenv import load_dotenv
 
 load_dotenv()
-TOKEN = os.getenv("8287498125:AAFVZvSTbBagW5NgQWVkrmb5u965skBTgQk")
+TOKEN = os.getenv("BOT_TOKEN")
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
